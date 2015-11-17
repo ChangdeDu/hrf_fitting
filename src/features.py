@@ -24,6 +24,37 @@ def make_gaussian(center,fwhm,n_pix):
     y0 = center[1]
     
     return np.exp(-4*np.log(2) * ((Xm-x0)**2 + (Ym-y0)**2) / fwhm**2)
+  
+  
+def make_2D_sinewave(freq, theta, phase, n_pix):
+    '''
+    
+    freq is cycles/image
+    
+    phase_off is in radians (0 pi)
+    
+    center is (x,y) in pixel coordinates
+    
+    n_pix is size of the kernel in pixels
+    
+    '''
+    vec = np.array([np.sin(theta), np.cos(theta)]).reshape((2,1))
+    
+    if n_pix % 2 == 0:
+        pix_min = -n_pix/2
+        pix_max = -pix_min
+    else:
+        pix_min = -(n_pix-1)/2
+        pix_max = -pix_min+1
+    [Xm, Ym] = np.meshgrid(range(pix_min,pix_max), range(pix_min,pix_max));
+    proj = np.array([Xm.ravel(), Ym.ravel()]).T.dot(vec)
+    Dt = np.sin(proj/n_pix*freq*2*np.pi+phase)              # compute proportion of Xm for given orientation\
+    Dt = Dt.reshape(Xm.shape)
+    return Dt
+  
+  
+def make_gabor(freq, theta, phase, center, fwhm, n_pix):
+  return make_2D_sinewave(freq,theta,phase,n_pix)*make_gaussian(center, fwhm,n_pix)
 
 def make_a_ripple(freq, phase_off, center, n_pix):
     '''

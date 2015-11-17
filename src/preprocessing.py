@@ -130,11 +130,13 @@ def chunkwise_downsampling(frame_list,chunksize,rule='first',ignore=None):
     ##and that's all I can think of
     for chunk in range(0,len(frame_list), chunksize):
         one_tr = frame_list[chunk:chunk+chunksize]
-        if not iterable(ignore):
-            ignore = ignore,
-        for ig in ignore:
-            if ig in one_tr:
-                one_tr.remove(ig)        
+        try:
+            for ig in ignore:
+                if ig in one_tr:
+                    one_tr.remove(ig)
+        except:
+            if ignore:
+                one_tr.remove(ignore)
         downsampled_frame_list.append(reduce_chunk(one_tr))
     return downsampled_frame_list
         
@@ -142,9 +144,7 @@ def chunkwise_downsampling(frame_list,chunksize,rule='first',ignore=None):
 
 # #####creates a binary conditions matrix from a frame file and a know sampling period (=TR)
 
-def construct_conditions_matrix(downsampled_frame_list,sampling_period, hrf_length, not_a_condition=None,basis='fir'):
-    from hrf_estimation import create_design_matrix
-    
+def construct_conditions_matrix(downsampled_frame_list,sampling_period, hrf_length, not_a_condition=[None],basis='fir'):
     '''
     construct_conditions_matrix(downsampled_frame_list,sampling_period)
     wraps "create_design_matrix" from the "hrf_estimation" module
@@ -156,7 +156,7 @@ def construct_conditions_matrix(downsampled_frame_list,sampling_period, hrf_leng
     
     hrf_length ~ number of samples per hrf
     
-    not_a_condition ~ identify elements of the frame_list that should be treated as inter-stimulus intervals
+    not_a_condition ~ identify elements of the frame_list that should be treated as inter-stimulus intervals. must be a list or a tuple.
     
     basis = 'fir', 'hrf', or '3hrf'. these choices are part of the "hrf_estimation" module.
     
@@ -172,17 +172,16 @@ def construct_conditions_matrix(downsampled_frame_list,sampling_period, hrf_leng
 
     
     '''
+    from hrf_estimation import create_design_matrix
     nscans = len(downsampled_frame_list)
     hrf_length = hrf_length*sampling_period
     condition_map = dict() ## a map from image_ids to a condition number
     condition_number = 0   ##this will determine the design matrix column for each image
     condition_sequence = [] ##the sequence in which images were shown
     condition_onsets = []  ##the times (in seconds) when images were shown
-    if not iterable(not_a_condition):
-        not_a_condition = not_a_condition,
     for tr_counter, ff in enumerate(downsampled_frame_list):
         if ff in not_a_condition:
-            continue
+            continue 
         if ff not in condition_map.keys():
             condition_map[ff] = condition_number
             condition_number += 1
