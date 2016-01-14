@@ -31,7 +31,9 @@ def make_2D_sinewave(freq, theta, phase, n_pix):
     
     freq is cycles/image
     
-    phase_off is in radians (0 pi)
+    theta is in radians
+    
+    phase is in radians (0 pi)
     
     center is (x,y) in pixel coordinates
     
@@ -55,6 +57,22 @@ def make_2D_sinewave(freq, theta, phase, n_pix):
   
 def make_gabor(freq, theta, phase, center, fwhm, n_pix):
   return make_2D_sinewave(freq,theta,phase,n_pix)*make_gaussian(center, fwhm,n_pix)
+
+def make_complex_gabor(freq,theta, center,fwhm,n_pix):
+    '''
+    make_complex_gabor(freq,theta, center,fwhm,n_pix)
+    freq is spatial frequency in cycles/image
+    theta is orientation in radians
+    center is (x,y) in pixel coordinates. center of image is (0,0)
+    fwhm is full-width-half-maximum, i.e., the radius.
+    n_pix is size of the kernel in pixels
+    
+    '''
+    phase = 0
+    on_gabor = make_gabor(freq, theta, phase, center, fwhm, n_pix)
+    phase = np.pi/2.
+    off_gabor = make_gabor(freq, theta, phase, center, fwhm, n_pix)
+    return off_gabor + 1j*on_gabor
 
 def make_a_ripple(freq, phase_off, center, n_pix):
     '''
