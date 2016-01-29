@@ -51,17 +51,6 @@ compute_grad = function(inputs = [voxel_data_tnsr,model_space_tnsr,feature_weigh
                         outputs=grad_SQD_wrt_NU)
 
 
-
-
-
-##---
-
-
-
-
-
-
-
 ##--training function
 def train_fwrf_model(model_space, voxel_data,initial_feature_weights,
                      early_stop_fraction = 0.2,

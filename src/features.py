@@ -2,14 +2,14 @@
 import numpy as np
 
 # ######functions for generating filter
-def make_gaussian(center,fwhm,n_pix):
-    """ Make a square gaussian kernel.
-    center is the center of the kernel in pixels. center of image is (0,0)
+def make_gaussian(center,sig,n_pix):
+    """
+    Make a picture of a circular gaussian blob.
+    center is the center of the blob in pixels. center of image is (0,0)
     
-    fwhm is full-width-half-maximum, which
-    can be thought of as an effective radius.
+    sig is one std. of the gaussian (pixels)
     
-    n_pix is the length of a side of the square
+    n_pix is the size of the picture of the gaussian blob. i.e., output will be an 2D array that is n_pix-by-n_pix
     """
     if n_pix % 2 == 0:
         pix_min = -n_pix/2
@@ -23,7 +23,9 @@ def make_gaussian(center,fwhm,n_pix):
     x0 = center[0]
     y0 = center[1]
     
-    return np.exp(-4*np.log(2) * ((Xm-x0)**2 + (Ym-y0)**2) / fwhm**2)
+    Z = (1. / 2*np.pi*sig**2)
+    
+    return Z *np.exp(-((Xm-x0)**2 + (Ym-y0)**2) / (2*sig**2))
   
   
 def make_2D_sinewave(freq, theta, phase, n_pix):
@@ -55,23 +57,23 @@ def make_2D_sinewave(freq, theta, phase, n_pix):
     return Dt
   
   
-def make_gabor(freq, theta, phase, center, fwhm, n_pix):
-  return make_2D_sinewave(freq,theta,phase,n_pix)*make_gaussian(center, fwhm,n_pix)
+def make_gabor(freq, theta, phase, center, sig, n_pix):
+  return make_2D_sinewave(freq,theta,phase,n_pix)*make_gaussian(center, sig,n_pix)
 
-def make_complex_gabor(freq,theta, center,fwhm,n_pix):
+def make_complex_gabor(freq,theta, center,sig,n_pix):
     '''
-    make_complex_gabor(freq,theta, center,fwhm,n_pix)
+    make_complex_gabor(freq,theta, center,sig,n_pix)
     freq is spatial frequency in cycles/image
     theta is orientation in radians
     center is (x,y) in pixel coordinates. center of image is (0,0)
-    fwhm is full-width-half-maximum, i.e., the radius.
+    sig is one std of the gaussian envelope (pixels)
     n_pix is size of the kernel in pixels
     
     '''
     phase = 0
-    on_gabor = make_gabor(freq, theta, phase, center, fwhm, n_pix)
+    on_gabor = make_gabor(freq, theta, phase, center, sig, n_pix)
     phase = np.pi/2.
-    off_gabor = make_gabor(freq, theta, phase, center, fwhm, n_pix)
+    off_gabor = make_gabor(freq, theta, phase, center, sig, n_pix)
     return off_gabor + 1j*on_gabor
 
 def make_a_ripple(freq, phase_off, center, n_pix):
