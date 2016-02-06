@@ -136,6 +136,9 @@ def make_gabor_stack(gbr_table, pix_per_filter, cycles_per_filter, envelope_radi
                 filter_stack[ii,c,:,:] = make_gabor(freq,ori,ph,center,radius,n_pix)
     return filter_stack
 
+
+##here we use theano to construct a function that applies gabor filters to images.
+##it can be either simple or complex cell-like.
 def make_apply_gabor_function(filter_stack_shape,complex_cell=True):
     stim_tnsr = tnsr.tensor4('stim_tnsr')  ##T x n_color_channels x stim_size x stim_size
     real_filter_stack_tnsr = tnsr.tensor4('real_feature_map_tnsr') ##D x n_color_channels x stim_size x stim_size. complex
@@ -174,6 +177,8 @@ def create_gabor_feature_map(image_stack,filter_stack,freq_table,complex_cell=Tr
     n_color_channels = image_stack.shape[1]
     feature_indices = freq_table.index
     feature_dict = {}    
+    
+    ##this will be a theano function
     apply_filter = make_apply_gabor_function(filter_stack.shape, complex_cell=complex_cell)
 
     ##allocate memory first
@@ -241,6 +246,11 @@ class gabor_feature_maps(object):
                                              color_channels=color_channels)
     
     def create_feature_maps(self,image_stack,interp_order=3):
+	'''
+	image_stack ~ T x n_colors x s_pix x s_pix
+	filter_stack ~ D x n_colrs x f_pix x f_pix
+	
+	'''
         return create_gabor_feature_map(image_stack,
                                    self.filter_stack,
                                    self.gbr_table,
