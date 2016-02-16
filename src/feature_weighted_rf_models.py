@@ -171,10 +171,10 @@ class model_space():
     
     '''
     
-    def __init__(self, feature_dict, rf_instance, min_pix_per_radius=1, add_bias=False):
+    def __init__(self, feature_dict, rf_instance, min_pix_per_radius=1):
         '''
         
-        model_space(feature_dict, rf_instance, min_pix_per_radius=1, add_bias=False)
+        model_space(feature_dict, rf_instance, min_pix_per_radius=1)
         
         feature_dictionary ~ dictionary of T x Di x Si x Si feature map tensors.
                              T = integer, # of time-points (or trials, or sitmuli), constant for all features
@@ -184,8 +184,6 @@ class model_space():
           min_pix_per_stim ~ scalar, default = 1. don't consider rf's with fewer pixels than this.
                              rf's will have to be downsampled to be applied to some feature maps. if rf
                              has fewer than this number of pixels, returns a feature map of all 0's
-                  add_bias ~ boolean, default = False. If true, add an additional "bias" feature of depth = 1, resolution = 0
-                             and index = -1. 
                  
 	parses the feature dictionary and stores feature names, resoltions, and indices into concatentated model_space_tensor
 	stores information about receptive fields
@@ -193,7 +191,7 @@ class model_space():
         '''
         self.min_pix_per_radius = min_pix_per_radius
         self.receptive_fields = rf_instance
-        self.add_bias = add_bias
+        
         
 
         
@@ -211,12 +209,7 @@ class model_space():
         ##total feature depth
         self.D = np.sum(self.feature_depth.values())
         
-        ##update feature dictionaries if bias feature is wanted
-        if self.add_bias:
-            self.feature_depth['bias'] = 1
-            self.feature_resolutions['bias'] = 0
-            self.feature_indices['bias'] = -1
-            self.D += 1
+ 
     
     def normalize_model_space_tensor(self, mst,save=False):
         '''
@@ -251,9 +244,7 @@ class model_space():
         mst -= mn
         mst /= stdev
         
-        ##convert nans to 0's for two reasons:
-        ##1. the bias feature
-        ##2. the feature/rf pairs where the feature map is too low-res for the rf to be meaningful
+        ##convert nans to 0's because the feature/rf pairs where the feature map is too low-res for the rf to be meaningful
         mst = np.nan_to_num(mst)
         
         print 'model_space_tensor has been z-scored'
@@ -319,10 +310,7 @@ class model_space():
         if normalize:    
             mst = self.normalize_model_space_tensor(mst,save=False)  ##save = false so won't work unless
                                                                      ##you've already stored normalization_constants
-        
-        if self.add_bias:
-            mst[:,:,-1] = 1
-        
+                
         return mst
  
  
@@ -354,7 +342,8 @@ def prediction_menu(model_space_tensor, feature_weights, rf_indices=None):
     
 
 ##--training function
-def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
+def train_fwrf_model(model_space_tensor, voxel_data,
+		     initial_feature_weights = 'zeros',
                      early_stop_fraction = 0.2,
                      max_iters=100,
                      mini_batch_size = 0.1,
@@ -364,7 +353,8 @@ def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
                      report_every = 10):
 
     '''
-    train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
+    train_fwrf_model(model_space_tensor, voxel_data,
+		     initial_feature_weights = 'zeros',
                      early_stop_fraction = 0.2,
                      max_iters=100,
                      mini_batch_size = 0.1,
@@ -380,7 +370,7 @@ def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
     
 	 model_space_tensor ~ G x T x D tensor, G = rf models, D = features, T = time/trials
 		 voxel_data ~ T x V array of neural data, V ~ voxels
-    initial_feature_weights ~ G x D x V array of initial guesses at feature weights
+    initial_feature_weights ~ default = 'zeros', in which case set all to 0. otherwise, a G x D x V array of initial guesses at feature weights (if you have the memory to spare)
 	early_stop_fraction ~ amount of your training data reserved for early stopping. this subset called the "validation data".
 			      error reports refer to error on validation data. gradients are estimated on the remaining fraction, i.e., the "training data"
 		  max_iters ~ the only way to get this thing to stop. just go for as long as you have to wait.
@@ -405,13 +395,13 @@ def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
     ##chunk up the voxels
     trnIdx = np.arange(0,T)
     early_stop_num = np.round(len(trnIdx)*early_stop_fraction).astype('int')
-    voxel_bin_num = max(2,np.round(V/voxel_binsize))
-    voxel_bins = np.linspace(0,V-1,num=voxel_bin_num,endpoint=True)
+    voxel_bin_num = max(2,np.ceil(V/voxel_binsize))  
+    voxel_bins = np.linspace(0,V,num=voxel_bin_num,endpoint=True,dtype='int')
 
     ##chunk up the rf grids
     gdx = np.arange(0,G)
-    rf_bin_num = np.round(G/rf_grid_binsize)
-    rf_bins = np.linspace(0,G-1,num=rf_bin_num,endpoint=True)
+    rf_bin_num = max(2,np.ceil(G/rf_grid_binsize))
+    rf_bins = np.linspace(0,G,num=rf_bin_num,endpoint=True,dtype='int')
 
     ##clock the whole function execution.
     big_start = time()
@@ -420,8 +410,6 @@ def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
     perm_dx = np.random.permutation(trnIdx)
     validation_idx = perm_dx[0:early_stop_num]
     training_idx = perm_dx[early_stop_num:]
-    validation_idx = np.atleast_2d(np.sort(validation_idx).astype('int')) ##1 x val_idx.shape[1]
-    training_idx = np.atleast_2d(np.sort(training_idx).astype('int')) ##1 x trn_idx.shape[1]
     
     ##for storing the final model for each voxel
     final_rf = np.zeros(V).astype('int')
@@ -435,34 +423,39 @@ def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
     for v in range(len(voxel_bins)-1):
         
         ##indices for current batch of voxels
-        v_idx = np.atleast_2d(np.arange(voxel_bins[v], voxel_bins[v+1]).astype('int')) ##1 x v_idx.shape[1]
-        this_vox_batch_size = v_idx.shape[1]
-        print '--------------voxels from %d to %d' %(v_idx[0,0],v_idx[0,-1])
+        v_slice = slice(voxel_bins[v], voxel_bins[v+1])
+        this_vox_batch_size = voxel_bins[v+1] - voxel_bins[v]
+        print '--------------voxels from %d to %d' %(voxel_bins[v],voxel_bins[v+1])
         
         ##get data for these voxels
-        this_trn_voxel_data = voxel_data[training_idx.T, v_idx]
-        this_val_voxel_data = voxel_data[validation_idx.T, v_idx]
+        this_trn_voxel_data = voxel_data[training_idx, v_slice]
+        this_val_voxel_data = voxel_data[validation_idx, v_slice]
         
         
         ##iterate over batches of rf models
         for g in range(len(rf_bins)-1):
             
             ##indices for current batch of rf models
-            rf_idx = np.atleast_2d(np.arange(rf_bins[g], rf_bins[g+1]).astype('int')) ##1 x rf_idx.shape[1]
-            this_rf_batch_size = rf_idx.shape[1]
-            print '--------candiate rf models %d to %d' %(rf_idx[0,0],rf_idx[0,-1])
+            rf_slice = slice(rf_bins[g], rf_bins[g+1])
+            this_rf_batch_size = rf_bins[g+1] - rf_bins[g]
+            rf_idx = np.arange(rf_bins[g], rf_bins[g+1])
+            print '--------candiate rf models %d to %d' %(rf_bins[g], rf_bins[g+1])
             
             ##slice model space for this batch of models / this batch of voxels
-            this_trn_model_space = model_space_tensor[rf_idx.T,training_idx,:]
-            this_val_model_space = model_space_tensor[rf_idx.T,validation_idx,:]
+            this_trn_model_space = model_space_tensor[rf_slice,training_idx,:]
+            this_val_model_space = model_space_tensor[rf_slice,validation_idx,:]
 
             ##initialize best and current loss containers for this batch of voxels/models
             best_validation_loss = np.inf*np.ones((this_rf_batch_size,this_vox_batch_size)) #rf_chunk x voxel_chunk
             this_validation_loss = np.zeros(best_validation_loss.shape)
             
             ##initialize best and current weight containers for this batch of voxels/models
-            best_feature_weights = initial_feature_weights[rf_idx.flatten(),:,:]
-            best_feature_weights = best_feature_weights[:,:,v_idx.flatten()]
+            if initial_feature_weights == 'zeros':
+	      best_feature_weights = np.zeros((this_rf_batch_size, D, this_vox_batch_size),dtype='float32')
+	    else:
+	      best_feature_weights = initial_feature_weights[rf_slice,:,:]
+	      #best_feature_weights = best_feature_weights[:,:,v_idx.flatten()]
+              best_feature_weights = best_feature_weights[:,:,v_slice]
             feature_weights = np.copy(best_feature_weights)
             
             
@@ -518,14 +511,13 @@ def train_fwrf_model(model_space_tensor, voxel_data,initial_feature_weights,
                 iters += 1
             
             ##if the best of this batch of models has achieved new loss minimum, save it.
-            for ii in range(this_vox_batch_size):
-                best_of_batch_rf = np.argmin(best_validation_loss[:,ii]) ##index into current rf batch
-                this_voxel = v_idx.flatten()[ii] ##total voxel index 
-                if best_validation_loss[best_of_batch_rf,ii] < final_validation_loss[this_voxel]:
-                    final_validation_loss[this_voxel] = np.copy(best_validation_loss[best_of_batch_rf,ii])
-                    final_feature_weights[:,this_voxel] = np.copy(best_feature_weights[best_of_batch_rf,:,ii])
-                    final_rf[this_voxel] = rf_idx[0,best_of_batch_rf]
-                    best_error_history[:,this_voxel] = np.copy(iter_error[:,ii])
+            for ii,this_voxel in enumerate(np.arange(voxel_bins[v], voxel_bins[v+1])):
+                best_of_batch_rf = np.argmin(best_validation_loss[:,ii]) 				         ##best rf for current rf_batch / current voxel
+                if best_validation_loss[best_of_batch_rf,ii] < final_validation_loss[this_voxel]: 	         ##if best of this batch better than all previous batches
+                    final_validation_loss[this_voxel] = np.copy(best_validation_loss[best_of_batch_rf,ii])	 ##reset loss for current voxel
+                    final_feature_weights[:,this_voxel] = np.copy(best_feature_weights[best_of_batch_rf,:,ii])   ##reset corresponding feature weights for current voxel
+                    final_rf[this_voxel] = rf_idx[best_of_batch_rf]						 ##reset corresponding rf model for current voxel
+                    best_error_history[:,this_voxel] = np.copy(iter_error[:,ii])                    		 ##save the whole error history.
 
     print time()-big_start
     return final_validation_loss,final_feature_weights,final_rf,best_error_history
