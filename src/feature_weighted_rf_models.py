@@ -171,7 +171,7 @@ class model_space():
     
     '''
     
-    def __init__(self, feature_dict, rf_instance, min_pix_per_radius=1):
+    def __init__(self, feature_dict, rf_instance, min_pix_per_radius=1, activation_function=None):
         '''
         
         model_space(feature_dict, rf_instance, min_pix_per_radius=1)
@@ -192,7 +192,8 @@ class model_space():
         self.min_pix_per_radius = min_pix_per_radius
         self.receptive_fields = rf_instance
         
-        
+        if activation_function:
+	  self.activation_function = activation_function
 
         
         ##get feature depths, indices, resolutions
@@ -244,7 +245,7 @@ class model_space():
         mst -= mn
         mst /= stdev
         
-        ##convert nans to 0's because the feature/rf pairs where the feature map is too low-res for the rf to be meaningful
+        ##convert nans to 0's because there are feature/rf pairs where the feature map is too low-res for the rf to be meaningful
         mst = np.nan_to_num(mst)
         
         print 'model_space_tensor has been z-scored'
@@ -272,7 +273,7 @@ class model_space():
         training_mst = model_space.construct_model_space_tensor(training_feature_dict, normalize = False)
         training_mst = model_space.normalize_model_space_tensor(training_mst, save=True)
         
-        mean/stdev. now stored and all subsequent calls to "construct_model_space_tensor" will be normalized.
+        mean/stdev. now stored and all subsequent calls to "construct_model_space_tensor" will be normalized by default.
         
        returns
         model_space_tensor ~ G x T x D tensor.
@@ -306,9 +307,13 @@ class model_space():
             rf_stack = self.receptive_fields.make_rf_stack(self.feature_resolutions[feats],min_pix_per_radius=self.min_pix_per_radius).astype('float32')
             mst[:,:,self.feature_indices[feats]] = apply_rf_to_feature_maps(rf_stack,feature_dict[feats])
             
+        ##apply activation function if it exist
+	if hasattr(self, 'activation_function'):
+	  mst = self.activation_function(mst)
+            
         ##
         if normalize:    
-            mst = self.normalize_model_space_tensor(mst,save=False)  ##save = false so won't work unless
+            mst = self.normalize_model_space_tensor(mst,save=False)  ##save = false so will throw error unless
                                                                      ##you've already stored normalization_constants
                 
         return mst

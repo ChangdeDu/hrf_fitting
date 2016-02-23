@@ -195,7 +195,7 @@ def create_gabor_feature_map(image_stack,filter_stack,freq_table,complex_cell=Tr
         stimuli = np.zeros((T,n_color_channels,n_pix,n_pix)).astype('float32')
         for t in range(T):
             for c in range(n_color_channels):
-                stimuli[t,c,:,:] = resize(image_stack[t,c,:,:], (n_pix,n_pix),order=interp_order)
+                stimuli[t,c,:,:] = np.array(Image.fromarray(image_stack[t,c,:,:]).resize((n_pix,n_pix)),dtype='float32') #resize(image_stack[t,c,:,:], (n_pix,n_pix),order=interp_order)
         if complex_cell:
             tmp_feature_map = apply_filter(stimuli,
                                             np.real(this_filter).astype('float32'),
@@ -238,13 +238,18 @@ class gabor_feature_maps(object):
                                                      pix_per_cycle,
                                                      cycles_per_radius,
                                                      diams_per_filter,
-                                                     complex_cell=complex_cell)
+                                                     complex_cell=self.complex_cell)
+	 
+	
         self.filter_stack = make_gabor_stack(self.gbr_table,
                                              self.pix_per_filter,
                                              self.cycles_per_filter,
                                              self.envelope_radius_pix,
-                                             color_channels=color_channels)
+                                             color_channels=color_channels,
+                                             complex_cell = self.complex_cell)
     
+    
+    ###if 
     def create_feature_maps(self,image_stack,interp_order=3):
 	'''
 	image_stack ~ T x n_colors x s_pix x s_pix
