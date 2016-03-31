@@ -246,7 +246,12 @@ class model_space():
         mst /= stdev
         
         ##convert nans to 0's because there are feature/rf pairs where the feature map is too low-res for the rf to be meaningful
-        mst = np.nan_to_num(mst)
+        try:
+	  mst = np.nan_to_num(mst)
+	  print 'converted nans to nums'
+	except:
+	  print 'huh?'
+	  1/0
         
         print 'model_space_tensor has been z-scored'
         return mst
@@ -530,9 +535,107 @@ def train_fwrf_model(model_space_tensor, voxel_data,
 
 
 
+def leave_k_out_training(val_idx, *args, **kwargs):
+  '''
+leave_k_out_training(val_idx,
+		     model_space_tensor, voxel_data,
+		     initial_feature_weights = 'zeros',
+                     early_stop_fraction = 0.2,
+                     max_iters=100,
+                     mini_batch_size = 0.1,
+                     learning_rate=10**(-5),
+                     voxel_binsize=100,
+                     rf_grid_binsize = 200,
+                     report_every = 10)
+    
+    runs "train_fwrf_model" multiple times over multiple validation sets.
+    
+    for each validation set, trains a separate model using the gradient-descent-with-early-stopping procedure specified by "train_fwrf_model".
+    
+    
+    inputs
+	 val_idx            ~ a dictionary of validation sets. each key is an integer from 0 to number of val. sets. each value is an np.array of validation indices idx: 0 <= idx < T,
+			      where T is the total number of available data samples
+    
+	 model_space_tensor ~ G x T x D tensor, G = rf models, D = features, T = time/trials
+		 voxel_data ~ T x V array of neural data, V ~ voxels
+    initial_feature_weights ~ default = 'zeros', in which case set all to 0. otherwise, a G x D x V array of initial guesses at feature weights (if you have the memory to spare)
+	early_stop_fraction ~ amount of your training data reserved for early stopping. this subset called the "validation data".
+			      error reports refer to error on validation data. gradients are estimated on the remaining fraction, i.e., the "training data"
+		  max_iters ~ the only way to get this thing to stop. just go for as long as you have to wait.
+	      learning_rate ~ size of gradient step. mess with it until you get it right.
+	      voxel_binsize ~ how many voxels to train at one time
+	    rf_grid_binsize ~ how many rf models to evaluate at one time
+	       report_every ~ print a summary of error every this-many iterations
+   
+   outputs
+   
+   trn_idx               ~ dicionaries with integer keys indicating resampling iteration. Each value is an array of validation/training trials used for validation and sampling.
+   params                ~ a dictionary with same integer keys as above. each dictionary 
+   final_validation_loss ~ V. for each voxel and each rf, the minimum validation loss.
+   final_feature_weights ~ D x V. for each voxel, the feature weights associated with the best rf model for that voxel
+		final_rf ~ V. index of best rf model for each voxel
+      best_error_history ~ max_iters x V. the error trajectory for the best rf model for each voxel. the min of this trajectory = final_validation_loss
+  
+  
+  
+  '''
+
+  trn_idx = {}
+  params = {}
+  voxel_data = args[1]
+  mst = args[0]
+  T = voxel_data.shape[0] ##number of data samples
+  print 'number of data samples: %d' %(T)
+  
+  n_resamples = len(val_idx.keys())
+  for r_iter in range(n_resamples):
+      print '======beginning training round %d' %(r_iter)
+      params[r_iter] = {}
+      trn_idx[r_iter] = np.setdiff1d(np.arange(T), val_idx[r_iter]).astype('int').ravel()
+      trn_voxel_data = voxel_data[trn_idx[r_iter],:]
+      training_mst = mst[:,trn_idx[r_iter],:]
+      params[r_iter]['fvl'],params[r_iter]['ffw'],params[r_iter]['frf'],params[r_iter]['beh'] = train_fwrf_model(training_mst, trn_voxel_data, **kwargs)
+
+  return trn_idx, params
+      
 
 
+def split_em_up(n_stim, val_frac, n_resamples):
+  '''
+  val_idx = split_em_up(n_stim, val_frac, n_resamples)
+  
+  splits up data samples into muliple, nonoverlapping validation sets
+  n_stim ~ number of training samples available
+  val_frac ~ fraction of training samples in each validation set.
+  n_resamples ~ number of validation sets
+  
+  *Note*: prioritizes n_resamples over val_frac to make sure validation sets never overlap.
+  For example, suppose n_stim = 500, and you ask for val_frac = .9 and n_resamples = n_stim. The number of samples
+  in each validation set will be exactly one, even though you asked for ~460 samples. This is because we want
+  to strongly enforce non-overlapment of validation sets.
+  
+  returns:
+    val_idx: a dictionary with integer keys. each value is an np.array of indices between in the range 0 <= index < n_stim.
+  
+  '''
+  Tval = int(np.floor(val_frac*n_stim))
+  val_idx = {}
+  cur = 0 
+  cnt = 0
+  val_idx[0] = []
+  while (cur <= (n_stim - n_resamples)) and (cnt <= Tval):
+    val_idx[0].append(cur)
+    cur += n_resamples
+    cnt += 1
+  
+  val_idx[0] = np.array(val_idx[0],dtype='int').ravel()
+  print 'number of validation samples: %d' %(len(val_idx[0]))
 
+  for nsamp in np.arange(1,n_resamples).astype('int'):
+    val_idx[nsamp] = val_idx[0]+nsamp
+    
+  return val_idx
 
 
 
