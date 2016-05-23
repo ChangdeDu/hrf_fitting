@@ -2,6 +2,18 @@
 import numpy as np
 
 # ######functions for generating filter
+def make_space(n_pix):
+    if n_pix % 2 == 0:
+        pix_min = -n_pix/2
+        pix_max = -pix_min
+    else:
+        pix_min = -(n_pix-1)/2
+        pix_max = -pix_min+1
+    
+    [Xm, Ym] = np.meshgrid(range(pix_min,pix_max), range(pix_min,pix_max));  
+  
+    return Xm, Ym
+
 def make_gaussian(center,sig,n_pix):
     """
     Make a picture of a circular gaussian blob.
@@ -11,14 +23,8 @@ def make_gaussian(center,sig,n_pix):
     
     n_pix is the size of the picture of the gaussian blob. i.e., output will be an 2D array that is n_pix-by-n_pix
     """
-    if n_pix % 2 == 0:
-        pix_min = -n_pix/2
-        pix_max = -pix_min
-    else:
-        pix_min = -(n_pix-1)/2
-        pix_max = -pix_min+1
     
-    [Xm, Ym] = np.meshgrid(range(pix_min,pix_max), range(pix_min,pix_max));  
+    Xm,Ym = make_space(n_pix)
     
     x0 = center[0]
     y0 = center[1]

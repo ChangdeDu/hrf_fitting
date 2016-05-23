@@ -132,7 +132,7 @@ def make_gabor_stack(gbr_table, pix_per_filter, cycles_per_filter, envelope_radi
             if complex_cell:
                 filter_stack[ii,c,:,:] = make_complex_gabor(freq,ori,center,radius,n_pix)
             else:
-                ph = gbr_table.loc[o,'phase']
+                ph = gbr_table.loc[ii,'phase']
                 filter_stack[ii,c,:,:] = make_gabor(freq,ori,ph,center,radius,n_pix)
     return filter_stack
 
