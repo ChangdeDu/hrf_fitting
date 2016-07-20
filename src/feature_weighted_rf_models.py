@@ -61,7 +61,7 @@ compute_grad = function(inputs = [voxel_data_tnsr,model_space_tnsr,feature_weigh
 def make_rf_table(deg_per_stim,deg_per_radius,spacing,pix_per_stim = None):
     '''
     here is the machinery for setting up grid of rfs
-    includes machinery for downsampling to different pixel resolutions
+    
     
     make_rf_table(deg_per_stim,deg_per_radius,spacing,pix_per_stim = None)
     
@@ -181,7 +181,7 @@ class model_space():
                              Di = feature depth, may vary across keys in dict.
                              Si is feature map resolution in pixels. it may vary across keys.
                rf_instance ~ instance of receptive_fields class
-          min_pix_per_stim ~ scalar, default = 1. don't consider rf's with fewer pixels than this.
+        min_pix_per_radius ~ scalar, default = 1. don't consider rf's with fewer pixels than this.
                              rf's will have to be downsampled to be applied to some feature maps. if rf
                              has fewer than this number of pixels, returns a feature map of all 0's
                  

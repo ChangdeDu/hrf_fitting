@@ -33,7 +33,6 @@ def make_gaussian(center,sig,n_pix):
     
     return Z *np.exp(-((Xm-x0)**2 + (Ym-y0)**2) / (2*sig**2))
   
-  
 def make_2D_sinewave(freq, theta, phase, n_pix):
     '''
     
@@ -62,9 +61,8 @@ def make_2D_sinewave(freq, theta, phase, n_pix):
     Dt = Dt.reshape(Xm.shape)
     return Dt
   
-  
 def make_gabor(freq, theta, phase, center, sig, n_pix):
-  return make_2D_sinewave(freq,theta,phase,n_pix)*make_gaussian(center, sig,n_pix)
+    return make_2D_sinewave(freq,theta,phase,n_pix)*make_gaussian(center, sig,n_pix)
 
 def make_complex_gabor(freq,theta, center,sig,n_pix):
     '''
